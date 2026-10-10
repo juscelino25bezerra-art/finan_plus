@@ -12,6 +12,7 @@ Controle financeiro pessoal **simples, privado e offline**, no navegador do celu
 
 - Lista completa do que o app faz: [FUNCIONALIDADES.md](FUNCIONALIDADES.md)
 - Calendário de lançamentos: [CALENDARIO.md](CALENDARIO.md)
+- Recorrências nos próximos meses ("Previsto"): [RECORRENCIAS.md](RECORRENCIAS.md)
 - Simulador "E se…?": [SIMULADOR.md](SIMULADOR.md)
 - Como o assistente decide cada coisa: [ASSISTENTE.md](ASSISTENTE.md)
 - O que foi feito nesta versão: [CHANGELOG.md](CHANGELOG.md)

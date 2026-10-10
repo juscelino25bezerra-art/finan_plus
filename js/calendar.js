@@ -4,7 +4,7 @@
 // Calendário da aba Lançamentos e período da Lista: tradução de core/MonthCalendar.kt e core/Period.kt
 // do Finan+ Android, com as mesmas regras e os mesmos testes (tests/calendar.test.mjs).
 // Datas são textos "AAAA-MM-DD"; meses (ym) são inteiros ano*12 + mês-1, como no core.js.
-import { Finance, Money, MONTHS, isCard, ymOf, ymFirst, ymLast, ymLen, ymDay, weekday } from './core.js';
+import { Finance, Money, MONTHS, isCard, ymOf, ymFirst, ymLast, ymLen, ymDay, weekday, Projection } from './core.js';
 
 const WEEKDAYS = { 1: 'segunda-feira', 2: 'terça-feira', 3: 'quarta-feira', 4: 'quinta-feira', 5: 'sexta-feira', 6: 'sábado', 7: 'domingo' };
 const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -40,6 +40,8 @@ export const MonthCalendar = {
     const byDay = new Map();
     const get = d => { if (!byDay.has(d)) byDay.set(d, { date: d, txs: [], invoices: [] }); return byDay.get(d); };
     for (const t of s.txs) if (ymOf(t.date) === ym) get(t.date).txs.push(t);
+    // recorrências previstas nos meses que ainda não chegaram (não são gravadas; ver Projection)
+    for (const t of Projection.between(s, ymFirst(ym), ymLast(ym), today)) get(t.date).txs.push(t);
     for (const i of MonthCalendar.invoicesDue(s, ym, today)) get(i.due).invoices.push(i);
     const days = new Map();
     for (const d of [...byDay.keys()].sort()) {
@@ -138,6 +140,8 @@ export const Period = {
       if (t.kind === 'income') toReceive += t.value; else toPay += t.value;
     }
     for (const i of MonthCalendar.invoicesDue(s, ym, today)) toPay += i.amount;
+    // num mês que ainda não chegou, as recorrências previstas também faltam entrar ou sair
+    for (const t of Projection.between(s, ymFirst(ym), ymLast(ym), today)) { if (isCard(t)) continue; if (t.kind === 'income') toReceive += t.value; else toPay += t.value; }
     return { toReceive, toPay };
   },
   /** pendências de uma lista já filtrada (fora do cartão) */

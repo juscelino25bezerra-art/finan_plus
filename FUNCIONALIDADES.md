@@ -77,7 +77,7 @@ As teclas simples funcionam fora dos campos de texto, em qualquer navegador. Num
 - Dia de fechamento e de vencimento; compras após o fechamento vão para a fatura seguinte.
 - O limite usado inclui parcelas futuras; os pagamentos abatem primeiro a fatura mais antiga.
 - "Pagar fatura" registra o pagamento debitando a conta escolhida, sem contar como despesa nova.
-- Recorrências geradas na abertura e na virada do dia. Meses em que o app ficou fechado são recuperados (até 24 de uma vez), nunca antes da data de início. Dia 31 vira o último dia em meses curtos. Recorrências podem ser pausadas.
+- Recorrências geradas na abertura e na virada do dia. Meses em que o app ficou fechado são recuperados (até 24 de uma vez), nunca antes da data de início. Dia 31 vira o último dia em meses curtos. Recorrências podem ser pausadas. Nos meses que ainda não chegaram, aparecem como **Previsto** no calendário, na Lista e no saldo previsto, sem serem gravadas ([RECORRENCIAS.md](RECORRENCIAS.md)).
 
 ## Relatórios
 

@@ -11,6 +11,19 @@
 
 - Nas janelas de confirmação (ex.: **Excluir lançamento**), o botão da ação (como "Excluir") aparecia mais alto que o "Cancelar". Agora os dois têm sempre a mesma altura e largura. Só `style.css` mudou (`.appDialogActions`).
 
+## 1.3.1 — Recorrências aparecem nos próximos meses (10/10/2026)
+
+**Problema (relatado pelo autor):** a receita fixa "Adiantamento Quinzenal" (todo dia 15) não aparecia em novembro e dezembro no calendário, enquanto uma despesa parcelada aparecia. Causa: toda recorrência (receita ou despesa) só vira lançamento quando o mês chega; as parcelas são criadas de uma vez, por isso pareciam "fixar".
+
+**Agora:** nos meses que ainda não chegaram, as recorrências ativas aparecem como **Previsto** no calendário, na Lista (quando o período chega lá), nas pendências do mês e no saldo previsto ao fim do dia. Clicar num previsto abre a recorrência; mudar ou pausar a recorrência muda os previstos na hora. **Nada é gravado**: o lançamento real continua sendo criado quando o mês chega. Mês atual, Relatórios, PDF e backup não mudam. Mesma regra do app Android 1.4.1. Detalhes em [RECORRENCIAS.md](RECORRENCIAS.md).
+
+| Arquivo | Mudança |
+|---|---|
+| `js/core.js` | `Projection.between`, `isProjected`; `futureBalance` conta os previstos; previsto não alterna pago |
+| `js/calendar.js` | Calendário e pendências do mês contam os previstos |
+| `js/screens.js`, `js/app.js` | Lista inclui os previstos; linha "Previsto · recorrência" abre a recorrência (também pelo teclado) |
+| `tests/projection.test.mjs` (novo) | 4 testes (105 no total) |
+
 ## 1.3.0 — Simulador "E se…?" e Relatórios renovados (09/10/2026)
 
 Mesmas mudanças do app Android 1.4.0, sem mexer em nenhum tema (tudo usa as cores do tema escolhido). Detalhes e contas em [SIMULADOR.md](SIMULADOR.md).

@@ -143,6 +143,33 @@ export const card = (s, id) => s.cards.find(c => c.id === id);
 const sumOf = l => l.reduce((n, t) => n + t.value, 0);
 
 // ------------------------------------------------------------------ cartões e faturas
+/**
+ * Recorrências previstas: as próximas ocorrências de cada recorrência ativa nos meses que ainda não chegaram.
+ * Não são gravadas; o lançamento real continua sendo criado quando o mês chega (Finance.generateRecurring).
+ * Mesmas regras do app Android (core/Projection.kt) e do Linux. Detalhes em RECORRENCIAS.md.
+ */
+export const PROJECTED_PREFIX = 'prev:';
+export const isProjected = t => typeof t.id === 'string' && t.id.startsWith(PROJECTED_PREFIX);
+export const Projection = {
+  /** ocorrências com data entre from e to (inclusive), só depois do mês de hoje e do último mês gerado; ordenadas por data */
+  between(s, from, to, today) {
+    if (!from || !to || to < from) return [];
+    const out = [], cur = ymOf(today);
+    for (const r of s.recurring) {
+      if (!r.active) continue;
+      let m = Math.max(cur + 1, ymOf(from));
+      if (r.last != null && r.last + 1 > m) m = r.last + 1;
+      if (r.start && ymOf(r.start) > m) m = ymOf(r.start);
+      for (; m <= ymOf(to); m++) {
+        const date = ymDay(m, r.day);
+        if (date < from || date > to || (r.start && date < r.start)) continue;
+        out.push(tx({ id: `${PROJECTED_PREFIX}${r.id}:${ymStr(m)}`, kind: r.kind, value: r.value, date, desc: r.desc, category: r.category, paid: !!r.cardId, accountId: r.accountId, cardId: r.cardId, recurringId: r.id }));
+      }
+    }
+    return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  },
+};
+
 export const Finance = {
   /** mês da fatura de uma compra: após o fechamento vai para a seguinte */
   invoiceYm(c, date) { const ym = ymOf(date); return dom(date) > Math.min(c.close, ymLen(ym)) ? ym + 1 : ym; },
@@ -176,6 +203,8 @@ export const Finance = {
     let c = Finance.currentBalance(s);
     for (const t of s.txs) { if (isCard(t) || t.paid || t.date > until) continue; c += t.kind === 'income' ? t.value : -t.value; }
     for (const cd of s.cards) for (const inv of Finance.cardStatus(s, cd, today).invoices) if (inv.open > 0 && inv.due <= until) c -= inv.open;
+    // recorrências previstas até until (só nos meses que ainda não chegaram; fora do cartão)
+    for (const t of Projection.between(s, today, until, today)) if (!isCard(t)) c += t.kind === 'income' ? t.value : -t.value;
     return c;
   },
 
@@ -336,7 +365,7 @@ export const Ops = {
   },
   /** Compra no cartão e pagamento de fatura não alternam pago/pendente: desmarcar um pagamento de fatura reabria
    *  a fatura e deixava o pagamento pendente, descontando o mesmo valor duas vezes (igual ao app Android 1.1.1). */
-  canTogglePaid: t => !isCard(t) && isFlow(t),
+  canTogglePaid: t => !isCard(t) && isFlow(t) && !isProjected(t),
   togglePaid: (s, id) => ({ ...s, txs: s.txs.map(x => x.id === id && Ops.canTogglePaid(x) ? { ...x, paid: !x.paid } : x) }),
 
   saveGoal(s, id, name, target, move, deadline, monthly) {

@@ -34,6 +34,8 @@
     MONTHS_SHORT: () => MONTHS_SHORT,
     Money: () => Money,
     Ops: () => Ops,
+    PROJECTED_PREFIX: () => PROJECTED_PREFIX,
+    Projection: () => Projection,
     THEMES: () => THEMES,
     account: () => account,
     addDays: () => addDays,
@@ -50,6 +52,7 @@
     fullDate: () => fullDate,
     isCard: () => isCard,
     isFlow: () => isFlow,
+    isProjected: () => isProjected,
     newId: () => newId,
     newState: () => newState,
     normalize: () => normalize,
@@ -231,6 +234,27 @@
   var account = (s, id) => s.accounts.find((a) => a.id === id);
   var card = (s, id) => s.cards.find((c) => c.id === id);
   var sumOf = (l) => l.reduce((n, t) => n + t.value, 0);
+  var PROJECTED_PREFIX = "prev:";
+  var isProjected = (t) => typeof t.id === "string" && t.id.startsWith(PROJECTED_PREFIX);
+  var Projection = {
+    /** ocorrências com data entre from e to (inclusive), só depois do mês de hoje e do último mês gerado; ordenadas por data */
+    between(s, from, to, today2) {
+      if (!from || !to || to < from) return [];
+      const out = [], cur = ymOf(today2);
+      for (const r of s.recurring) {
+        if (!r.active) continue;
+        let m2 = Math.max(cur + 1, ymOf(from));
+        if (r.last != null && r.last + 1 > m2) m2 = r.last + 1;
+        if (r.start && ymOf(r.start) > m2) m2 = ymOf(r.start);
+        for (; m2 <= ymOf(to); m2++) {
+          const date = ymDay(m2, r.day);
+          if (date < from || date > to || r.start && date < r.start) continue;
+          out.push(tx({ id: `${PROJECTED_PREFIX}${r.id}:${ymStr(m2)}`, kind: r.kind, value: r.value, date, desc: r.desc, category: r.category, paid: !!r.cardId, accountId: r.accountId, cardId: r.cardId, recurringId: r.id }));
+        }
+      }
+      return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    }
+  };
   var Finance = {
     /** mês da fatura de uma compra: após o fechamento vai para a seguinte */
     invoiceYm(c, date) {
@@ -271,6 +295,7 @@
         c += t.kind === "income" ? t.value : -t.value;
       }
       for (const cd of s.cards) for (const inv of Finance.cardStatus(s, cd, today2).invoices) if (inv.open > 0 && inv.due <= until) c -= inv.open;
+      for (const t of Projection.between(s, today2, until, today2)) if (!isCard(t)) c += t.kind === "income" ? t.value : -t.value;
       return c;
     },
     // ---- recorrências
@@ -455,7 +480,7 @@
     },
     /** Compra no cartão e pagamento de fatura não alternam pago/pendente: desmarcar um pagamento de fatura reabria
      *  a fatura e deixava o pagamento pendente, descontando o mesmo valor duas vezes (igual ao app Android 1.1.1). */
-    canTogglePaid: (t) => !isCard(t) && isFlow(t),
+    canTogglePaid: (t) => !isCard(t) && isFlow(t) && !isProjected(t),
     togglePaid: (s, id) => ({ ...s, txs: s.txs.map((x) => x.id === id && Ops.canTogglePaid(x) ? { ...x, paid: !x.paid } : x) }),
     saveGoal(s, id, name, target, move, deadline, monthly) {
       const n = clean(name, 60), t = Money.parse(target), m2 = blank(monthly) ? 0 : Money.parse(monthly);
@@ -858,6 +883,7 @@
         return byDay.get(d);
       };
       for (const t of s.txs) if (ymOf(t.date) === ym) get(t.date).txs.push(t);
+      for (const t of Projection.between(s, ymFirst(ym), ymLast(ym), today2)) get(t.date).txs.push(t);
       for (const i of MonthCalendar.invoicesDue(s, ym, today2)) get(i.due).invoices.push(i);
       const days = /* @__PURE__ */ new Map();
       for (const d of [...byDay.keys()].sort()) {
@@ -972,6 +998,11 @@
         else toPay += t.value;
       }
       for (const i of MonthCalendar.invoicesDue(s, ym, today2)) toPay += i.amount;
+      for (const t of Projection.between(s, ymFirst(ym), ymLast(ym), today2)) {
+        if (isCard(t)) continue;
+        if (t.kind === "income") toReceive += t.value;
+        else toPay += t.value;
+      }
       return { toReceive, toPay };
     },
     /** pendências de uma lista já filtrada (fora do cartão) */
@@ -3169,7 +3200,7 @@ Public License instead of this License.  But first, please read
   var why = (text) => `<details class="why"><summary>${icon("help", 16)}<span>Por quê?</span></summary><p>${esc(text)}</p></details>`;
 
   // js/ctx.js
-  var APP_VERSION = "1.3.0";
+  var APP_VERSION = "1.3.1";
   var ctx = {
     state: null,
     // dados (AppState do core)
@@ -4456,6 +4487,7 @@ ${bad} item(ns) inválido(s) será(ão) ignorado(s).` : "") + "\nSubstituir os d
   }
   function whatsNew() {
     const items = [
+      '1.3.1: receitas e despesas fixas (recorrências) aparecem nos próximos meses como "Previsto" no calendário, na Lista e no saldo previsto. Clique num previsto para abrir a recorrência. Nada é gravado antes da hora: o lançamento real é criado quando o mês chega.',
       '1.3.0: simulador "E se…?" em Relatórios: economizar por mês, quanto tempo para comprar algo, mudança na renda e antecipar uma dívida, sem mudar seus dados (dá para transformar em meta). Relatórios com o mesmo ‹ mês › de Lançamentos e comparação justa (mês atual contra os mesmos dias do mês anterior).',
       "1.2.1: o assistente não avisa mais que as despesas vão passar das receitas com base em uma ou duas compras: a projeção precisa de pelo menos 5 despesas no mês (3 por categoria com limite), e uma compra grande isolada conta uma vez.",
       "1.2.0: calendário em Lançamentos (saldo de cada dia, faturas no vencimento, atrasos; toque de novo num dia, ou segure, para lançar nessa data). No celular, deslize para o lado para trocar de aba.",
@@ -4704,7 +4736,7 @@ ${bad} item(ns) inválido(s) será(ão) ignorado(s).` : "") + "\nSubstituir os d
     <div class="glass"><small>Entradas</small><b class="green">${money(t.income)}</b></div>
     <div class="glass"><small>Saídas</small><b class="red">${money(t.expense)}</b></div>
     <div class="glass"><small>Resultado</small><b class="${t.net < 0 ? "red" : "accent"}">${money(t.net)}</b></div></section>
-    <p class="muted small calNote">Inclui o que ainda está pendente e as faturas no dia do vencimento. Compras no cartão aparecem no dia, mas só contam na fatura.</p>`;
+    <p class="muted small calNote">Inclui o que ainda está pendente, as faturas no dia do vencimento e, nos próximos meses, as recorrências previstas. Compras no cartão aparecem no dia, mas só contam na fatura.</p>`;
   }
   function dayBox(d, day, today2) {
     const n = day?.count || 0;
@@ -4890,7 +4922,8 @@ ${bad} item(ns) inválido(s) será(ão) ignorado(s).` : "") + "\nSubstituir os d
   }
   function filteredTxs() {
     const f = ctx.moves, q = Text.fold(f.q);
-    return ctx.state.txs.filter((t) => (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to) && (!f.kind || t.kind === f.kind) && (!f.st || (f.st === "paid" ? t.paid : !t.paid)) && (!q || Text.fold(t.desc + " " + t.category).includes(q))).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+    const projected = f.to ? Projection.between(ctx.state, f.from || ctx.today, f.to, ctx.today) : [];
+    return [...ctx.state.txs, ...projected].filter((t) => (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to) && (!f.kind || t.kind === f.kind) && (!f.st || (f.st === "paid" ? t.paid : !t.paid)) && (!q || Text.fold(t.desc + " " + t.category).includes(q))).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
   }
   function viewSwitch() {
     const v = ctx.movesView;
@@ -4947,13 +4980,13 @@ ${bad} item(ns) inválido(s) será(ão) ignorado(s).` : "") + "\nSubstituir os d
     };
   }
   function txRow(t, o = {}) {
-    const s = ctx.state, payment = !isFlow(t), cardT = isCard(t);
+    const s = ctx.state, payment = !isFlow(t), cardT = isCard(t), prev = isProjected(t);
     const where = cardT ? `Cartão ${card(s, t.cardId)?.name ?? ""}` : account(s, t.accountId)?.name ?? "";
     const late = !t.paid && !cardT && t.date < ctx.today;
-    const status = payment ? "Pagamento de fatura" : cardT ? "" : t.paid ? "" : late ? '<span class="red">Em atraso</span>' : t.kind === "income" ? "A receber" : "A pagar";
+    const status = prev ? "Previsto · recorrência" : payment ? "Pagamento de fatura" : cardT ? "" : t.paid ? "" : late ? '<span class="red">Em atraso</span>' : t.kind === "income" ? "A receber" : "A pagar";
     const meta = [esc(t.category), esc(where), o.noDate ? "" : brDate(t.date), status].filter(Boolean).join(" · ");
-    const toggle = cardT ? `<span class="chk card" title="Compra no cartão">${icon("credit-card", 16)}</span>` : payment ? `<span class="chk on" title="Pagamento de fatura">${icon("check", 16)}</span>` : `<button type="button" class="chk${t.paid ? " on" : ""}" data-act="toggle-paid" data-id="${attr(t.id)}" aria-pressed="${t.paid}" aria-label="${t.paid ? t.kind === "income" ? "Recebido" : "Pago" : t.kind === "income" ? "Marcar como recebido" : "Marcar como pago"}: ${attr(t.desc)}">${icon("check", 16)}</button>`;
-    return `<div class="tx ${t.kind}${t.paid ? "" : " pending"}${payment ? " payment" : ""}" data-act="edit-tx" data-id="${attr(t.id)}" role="button" tabindex="0" aria-label="${attr(t.desc)}, ${t.kind === "income" ? "receita" : "despesa"} de ${attr(money(t.value))} em ${brDate(t.date)}">
+    const toggle = prev ? `<span class="chk card" title="Previsto: o lançamento é criado quando o mês chegar">${icon("repeat", 16)}</span>` : cardT ? `<span class="chk card" title="Compra no cartão">${icon("credit-card", 16)}</span>` : payment ? `<span class="chk on" title="Pagamento de fatura">${icon("check", 16)}</span>` : `<button type="button" class="chk${t.paid ? " on" : ""}" data-act="toggle-paid" data-id="${attr(t.id)}" aria-pressed="${t.paid}" aria-label="${t.paid ? t.kind === "income" ? "Recebido" : "Pago" : t.kind === "income" ? "Marcar como recebido" : "Marcar como pago"}: ${attr(t.desc)}">${icon("check", 16)}</button>`;
+    return `<div class="tx ${t.kind}${t.paid ? "" : " pending"}${payment ? " payment" : ""}${prev ? " projected" : ""}" data-act="${prev ? "edit-recurring" : "edit-tx"}" data-id="${attr(prev ? t.recurringId : t.id)}" role="button" tabindex="0" aria-label="${attr(t.desc)}, ${prev ? "previsto, " : ""}${t.kind === "income" ? "receita" : "despesa"} de ${attr(money(t.value))} em ${brDate(t.date)}">
     ${glyph(t.category)}<span class="meta"><b>${esc(t.desc)}</b><small>${meta}</small></span>
     <span class="amount">${t.kind === "income" ? "+" : "−"}${money(t.value)}</span>${toggle}</div>`;
   }
@@ -5872,7 +5905,7 @@ Este programa é distribuído na esperança de que seja útil, mas SEM NENHUMA G
   document.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".tx[role=button]")) {
       e.preventDefault();
-      ACTIONS["edit-tx"](e.target);
+      ACTIONS[e.target.dataset.act || "edit-tx"](e.target);
     }
     if (e.key === "Escape") {
       const m2 = $("#menu");

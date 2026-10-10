@@ -365,6 +365,7 @@ export function shortcutsDialog() {
 }
 export function whatsNew() {
   const items = [
+    '1.3.1: receitas e despesas fixas (recorrências) aparecem nos próximos meses como "Previsto" no calendário, na Lista e no saldo previsto. Clique num previsto para abrir a recorrência. Nada é gravado antes da hora: o lançamento real é criado quando o mês chega.',
     '1.3.0: simulador "E se…?" em Relatórios: economizar por mês, quanto tempo para comprar algo, mudança na renda e antecipar uma dívida, sem mudar seus dados (dá para transformar em meta). Relatórios com o mesmo ‹ mês › de Lançamentos e comparação justa (mês atual contra os mesmos dias do mês anterior).',
     '1.2.1: o assistente não avisa mais que as despesas vão passar das receitas com base em uma ou duas compras: a projeção precisa de pelo menos 5 despesas no mês (3 por categoria com limite), e uma compra grande isolada conta uma vez.',
     '1.2.0: calendário em Lançamentos (saldo de cada dia, faturas no vencimento, atrasos; toque de novo num dia, ou segure, para lançar nessa data). No celular, deslize para o lado para trocar de aba.',

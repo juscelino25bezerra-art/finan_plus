@@ -5,7 +5,7 @@
 // Cada tela só gera HTML; os cliques passam por data-act (tratados em app.js).
 // No computador as telas se dividem em 2 ou 3 colunas (ctx.cols); no celular, uma.
 import {
-  Finance, isCard, isFlow, ymOf, ymFirst, ymLast, ymLen, addDays, brDate, brDayMonth, brMonthLabel, brMonthYear, fullDate,
+  Finance, isCard, isFlow, isProjected, Projection, ymOf, ymFirst, ymLast, ymLen, addDays, brDate, brDayMonth, brMonthLabel, brMonthYear, fullDate,
   MONTHS, MONTHS_SHORT, THEMES, themeLabel, AUTOLOCK_OPTIONS, account, card, CARD_PAYMENT_CAT, Money,
 } from './core.js';
 import { Insights, Ask, ASK_EXAMPLES, Categorizer, Text, INSIGHT_LABELS } from './assist.js';
@@ -194,7 +194,9 @@ export function movesDefaults() {
 }
 export function filteredTxs() {
   const f = ctx.moves, q = Text.fold(f.q);
-  return ctx.state.txs.filter(t => (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to)
+  // recorrências previstas dos meses que ainda não chegaram (só com fim de período; não são gravadas)
+  const projected = f.to ? Projection.between(ctx.state, f.from || ctx.today, f.to, ctx.today) : [];
+  return [...ctx.state.txs, ...projected].filter(t => (!f.from || t.date >= f.from) && (!f.to || t.date <= f.to)
     && (!f.kind || t.kind === f.kind) && (!f.st || (f.st === 'paid' ? t.paid : !t.paid))
     && (!q || Text.fold(t.desc + ' ' + t.category).includes(q)))
     .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
@@ -261,15 +263,17 @@ export function movesData() {
 
 /** linha de lançamento; o: { noDate } quando o dia já aparece no título (lista por dia e calendário) */
 export function txRow(t, o = {}) {
-  const s = ctx.state, payment = !isFlow(t), cardT = isCard(t);
+  const s = ctx.state, payment = !isFlow(t), cardT = isCard(t), prev = isProjected(t);
   const where = cardT ? `Cartão ${card(s, t.cardId)?.name ?? ''}` : account(s, t.accountId)?.name ?? '';
   const late = !t.paid && !cardT && t.date < ctx.today;
-  const status = payment ? 'Pagamento de fatura' : cardT ? '' : t.paid ? '' : late ? '<span class="red">Em atraso</span>' : (t.kind === 'income' ? 'A receber' : 'A pagar');
+  const status = prev ? 'Previsto · recorrência' : payment ? 'Pagamento de fatura' : cardT ? '' : t.paid ? '' : late ? '<span class="red">Em atraso</span>' : (t.kind === 'income' ? 'A receber' : 'A pagar');
   const meta = [esc(t.category), esc(where), o.noDate ? '' : brDate(t.date), status].filter(Boolean).join(' · ');
-  const toggle = cardT ? `<span class="chk card" title="Compra no cartão">${icon('credit-card', 16)}</span>`
+  // recorrência prevista (mês que ainda não chegou): não existe nos dados; clicar abre a recorrência
+  const toggle = prev ? `<span class="chk card" title="Previsto: o lançamento é criado quando o mês chegar">${icon('repeat', 16)}</span>`
+    : cardT ? `<span class="chk card" title="Compra no cartão">${icon('credit-card', 16)}</span>`
     : payment ? `<span class="chk on" title="Pagamento de fatura">${icon('check', 16)}</span>`
       : `<button type="button" class="chk${t.paid ? ' on' : ''}" data-act="toggle-paid" data-id="${attr(t.id)}" aria-pressed="${t.paid}" aria-label="${t.paid ? (t.kind === 'income' ? 'Recebido' : 'Pago') : (t.kind === 'income' ? 'Marcar como recebido' : 'Marcar como pago')}: ${attr(t.desc)}">${icon('check', 16)}</button>`;
-  return `<div class="tx ${t.kind}${t.paid ? '' : ' pending'}${payment ? ' payment' : ''}" data-act="edit-tx" data-id="${attr(t.id)}" role="button" tabindex="0" aria-label="${attr(t.desc)}, ${t.kind === 'income' ? 'receita' : 'despesa'} de ${attr(money(t.value))} em ${brDate(t.date)}">
+  return `<div class="tx ${t.kind}${t.paid ? '' : ' pending'}${payment ? ' payment' : ''}${prev ? ' projected' : ''}" data-act="${prev ? 'edit-recurring' : 'edit-tx'}" data-id="${attr(prev ? t.recurringId : t.id)}" role="button" tabindex="0" aria-label="${attr(t.desc)}, ${prev ? 'previsto, ' : ''}${t.kind === 'income' ? 'receita' : 'despesa'} de ${attr(money(t.value))} em ${brDate(t.date)}">
     ${glyph(t.category)}<span class="meta"><b>${esc(t.desc)}</b><small>${meta}</small></span>
     <span class="amount">${t.kind === 'income' ? '+' : '−'}${money(t.value)}</span>${toggle}</div>`;
 }
