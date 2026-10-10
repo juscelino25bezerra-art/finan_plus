@@ -317,7 +317,7 @@ document.addEventListener('click', e => {
   fn(el);
 });
 document.addEventListener('keydown', e => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.tx[role=button]')) { e.preventDefault(); ACTIONS['edit-tx'](e.target); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.tx[role=button]')) { e.preventDefault(); ACTIONS[e.target.dataset.act || 'edit-tx'](e.target); }
   if (e.key === 'Escape') { const m = $('#menu'); if (m && !m.hidden) { m.hidden = true; $('#menuBtn')?.focus(); } }
 });
 

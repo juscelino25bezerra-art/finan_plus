@@ -64,7 +64,7 @@ function monthTotals(days) {
     <div class="glass"><small>Entradas</small><b class="green">${money(t.income)}</b></div>
     <div class="glass"><small>Saídas</small><b class="red">${money(t.expense)}</b></div>
     <div class="glass"><small>Resultado</small><b class="${t.net < 0 ? 'red' : 'accent'}">${money(t.net)}</b></div></section>
-    <p class="muted small calNote">Inclui o que ainda está pendente e as faturas no dia do vencimento. Compras no cartão aparecem no dia, mas só contam na fatura.</p>`;
+    <p class="muted small calNote">Inclui o que ainda está pendente, as faturas no dia do vencimento e, nos próximos meses, as recorrências previstas. Compras no cartão aparecem no dia, mas só contam na fatura.</p>`;
 }
 
 function dayBox(d, day, today) {
